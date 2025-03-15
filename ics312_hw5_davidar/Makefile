@@ -5,7 +5,7 @@ ASM = nasm
 ASMFLAGS = -f elf
 
 # Define program names
-EXECS = hw5_ex1 hw5_ex2 #hw5_ex3
+EXECS = hw5_ex1 hw5_ex2 hw5_ex3 hw5_ex4
 all: $(EXECS)
 
 # Linking executables

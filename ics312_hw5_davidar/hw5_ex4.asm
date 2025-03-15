@@ -1,9 +1,13 @@
+;    A Full-Fledged Wordle
+
 ; This program first prompts the user for a positive integer. This integer is used to pick a mystery word to guess. 
 ; The program computes the remainder of the division of this integer by [num_words], which gives the index of a word 
 ; in the list of all words. The program then repeatedly asks the user for a 5-letter lower-case string, the guess. 
 ; If the guess is not a word, then the program asks for a guess again. If the guess is a word, then the program prints, 
 ; for each letter in the guess, an underscore if the letter is not a match or the upper-case version of the letter is 
-; the letter is a match. The game continues until you guess the correct word.
+; the letter is a match or a lower case if letter is missplaced. The game is finished after the player guesses 6 real 
+; word that are not the mystery word.
+
 
 %include "asm_io.inc"
 %include "allwords.inc"
@@ -12,16 +16,21 @@ segment .data
     ; initalized varibles
 	int_prompt	db	"Enter any integer: ", 0			; prompt for int
 	prompt	 	db	"Enter a 5-letter guess: ", 0		; prompt
-	won			db	"You won!", 0						; winning message
+	wons		db	"You won!", 0						; winning message
+	here		db	"was here", 0
 	space		db	"                        "			; empty space for formating + letters
 	letters		db  "_____", 0  						; correct letter output
 	e_letters	db  "____"								; empty letter to reset back to
-	the_word    db  0, 0, 0, 0, 0						; stores the randomly chosen word	
-	guess		db  0, 0, 0, 0, 0						; user input
+	losts		db	"You lost. The word was "
+	the_word    db  0, 0, 0, 0, 0, 0					; stores the randomly chosen word
+	c_word  	db  0, 0, 0, 0, 0, 0					; stores the randomly chosen word to be use d to compare
+	guess		db  0, 0, 0, 0, 0						; user input	
+	turns		dd	6
 
 segment .bss
     ; unintialized vars
 	index		resd    1	; address of the random word
+	com_i		resd	1		; compare char index 
 
 segment .text
 	global asm_main
@@ -101,14 +110,30 @@ check_word_index:				; Checks index
 ; Compares each char
 compare_char:
 	mov		al, [guess+edx]		; al = guess char at edx index
-	mov		bl, [the_word+edx]	; al = guess char at edx index
+	mov		bl, [c_word+edx]	; bl = the_word char at edx index
 	cmp		al, bl				; al - bl
-	jnz		check_char_index	; skip update if not same
-; update_ouput:
+	jz		update_ouput_match	; update eaxct match
+	mov		[com_i], edx		; saves original index
+	mov		edx, 0				; start at the beginning so that no letter are missed
+sub_comp_char:
+	inc		edx					; edx++
+	cmp		edx, 6				; edx - 6
+	jz		restore_char_index  ; jump if at the end of subset 
+	mov		bl, [the_word+edx]	; bl = the_word char at edx index
+	cmp		al, bl				; al - bl
+	jnz		sub_comp_char		; jump back to subset if not a match
+;updates_ouput_close:
+	mov		edx, [com_i]		; retores the main index
+	mov		[letters+edx], al	; char = lowercase letter updates_ouput_close 
+restore_char_index:
+	mov		edx, [com_i]		; retores the main index
+	jmp		check_char_index	; jump to check main index
+
+update_ouput_match:
 	sub		al, 20h				; change bit to capitalized
 	mov		[letters+edx], al	; replaces "_"  with the capital letter
+	mov		
 	inc		ecx					; ecx++ (ammount of letters correct)
-
 check_char_index:
 	cmp		edx, 5 				; edx - 5     (letter index in the words)
 	jz  	print_output		; if word complete but not it reprompt
@@ -126,10 +151,19 @@ print_output:
 	mov		[letters+4], al		; resets last char
 
 	cmp		ecx, 5				; ecx - 5		(check if aall are correct)
-	jnz		guess_and_check		; not all letters were correct retry with new guess
+	jz		won					; jump to won
+	mov		edx, [turns]		; edx = turns 
+	sub		edx, 1				; edx--
+	jz		lost				; jump to lost if out of moves
+	mov		[turns], edx		; turns = edx
+	jmp		guess_and_check		; not all letters were correct retry with new guess
 
+won:
+	mov 	eax, wons			; eax = &won
+	jmp		done				; skip to done
+lost:
+	mov 	eax, losts			; eax = &lost
 done:							; ! ! FINISH ! !
-	mov 	eax, won			; eax = &won
 	call	print_string		
 	call	print_nl
 

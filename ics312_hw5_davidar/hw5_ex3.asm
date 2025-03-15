@@ -3,7 +3,7 @@
 ; in the list of all words. The program then repeatedly asks the user for a 5-letter lower-case string, the guess. 
 ; If the guess is not a word, then the program asks for a guess again. If the guess is a word, then the program prints, 
 ; for each letter in the guess, an underscore if the letter is not a match or the upper-case version of the letter is 
-; the letter is a match. The game continues until you guess the correct word.
+; the letter is a match. The game is finished after the player guesses 6 real word that are not the mystery word.
 
 %include "asm_io.inc"
 %include "allwords.inc"
@@ -12,12 +12,14 @@ segment .data
     ; initalized varibles
 	int_prompt	db	"Enter any integer: ", 0			; prompt for int
 	prompt	 	db	"Enter a 5-letter guess: ", 0		; prompt
-	won			db	"You won!", 0						; winning message
+	wons		db	"You won!", 0						; winning message
 	space		db	"                        "			; empty space for formating + letters
 	letters		db  "_____", 0  						; correct letter output
 	e_letters	db  "____"								; empty letter to reset back to
-	the_word    db  0, 0, 0, 0, 0						; stores the randomly chosen word	
+	losts		db	"You lost. The word was "
+	the_word    db  0, 0, 0, 0, 0, 0					; stores the randomly chosen word	
 	guess		db  0, 0, 0, 0, 0						; user input
+	turns		dd	6
 
 segment .bss
     ; unintialized vars
@@ -126,10 +128,19 @@ print_output:
 	mov		[letters+4], al		; resets last char
 
 	cmp		ecx, 5				; ecx - 5		(check if aall are correct)
-	jnz		guess_and_check		; not all letters were correct retry with new guess
+	jz		won					; jump to won
+	mov		edx, [turns]		; edx = turns 
+	sub		edx, 1				; edx--
+	jz		lost				; jump to lost if out of moves
+	mov		[turns], edx		; turns = edx
+	jmp		guess_and_check		; not all letters were correct retry with new guess
 
+won:
+	mov 	eax, wons			; eax = &won
+	jmp		done				; skip to done
+lost:
+	mov 	eax, losts			; eax = &lost
 done:							; ! ! FINISH ! !
-	mov 	eax, won			; eax = &won
 	call	print_string		
 	call	print_nl
 
