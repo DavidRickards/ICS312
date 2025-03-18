@@ -17,11 +17,10 @@ segment .data
 	int_prompt	db	"Enter any integer: ", 0			; prompt for int
 	prompt	 	db	"Enter a 5-letter guess: ", 0		; prompt
 	wons		db	"You won!", 0						; winning message
-	here		db	"was here", 0
 	space		db	"                        "			; empty space for formating + letters
 	letters		db  "_____", 0  						; correct letter output
 	e_letters	db  "____"								; empty letter to reset back to
-	losts		db	"You lost. The word was "
+	losts		db	"You lost. The word was: "
 	the_word    db  0, 0, 0, 0, 0, 0					; stores the randomly chosen word
 	c_word  	db  0, 0, 0, 0, 0, 0					; stores the randomly chosen word to be use d to compare
 	guess		db  0, 0, 0, 0, 0						; user input	
@@ -29,7 +28,7 @@ segment .data
 
 segment .bss
     ; unintialized vars
-	index		resd    1	; address of the random word
+	index		resd    1		; address of the random word
 	com_i		resd	1		; compare char index 
 
 segment .text
@@ -57,10 +56,11 @@ asm_main:
 
 	; Print first 4 letters of the word
 	mov		ebx, [ecx]			; ebx = the first 4 bytes (characters)
-	mov		[the_word], ebx		; Store it in [the_word] (for debugging)
+	mov		[the_word], ebx		; Store it in [the_word] (for printing the correct answer)
+	mov		[c_word], ebx		; Store it in [c_word] (for comparing a removing already found chars)
 	mov		bl, [ecx+4]			; bl = the 5th byte (character)
 	mov		[the_word+4], bl    ; the_word =  the whole word to guess
-;	mov		eax, the_word		
+	mov		[c_word+4], bl    	; c_word =  the whole word to guess
 	mov		edx, [num_words]	; edx = num_words
 	mov		[index], edx		; index =  edx
 
@@ -98,7 +98,7 @@ check_word:
 
 	mov		ecx, 0				; ecx = 0   (ammount of letters correct)
 	mov		edx, 0				; edx = 0   (letter index in the words)
-	jmp		compare_char		; ! ! COMPARE ! !
+	jmp		compare_char_exact	; ! ! COMPARE ! !
 
 check_word_index:				; Checks index
 	sub		edx, 1				; edx =- 1  (decrement index)
@@ -107,55 +107,81 @@ check_word_index:				; Checks index
 	jmp		check_word			; Jmp to check_word
 
 ; Updates letter is comparision com back true
-; Compares each char
-compare_char:
+; Compares each char for and EXACT MATCH (UPPERCASE)
+compare_char_exact:
 	mov		al, [guess+edx]		; al = guess char at edx index
 	mov		bl, [c_word+edx]	; bl = the_word char at edx index
 	cmp		al, bl				; al - bl
-	jz		update_ouput_match	; update eaxct match
-	mov		[com_i], edx		; saves original index
-	mov		edx, 0				; start at the beginning so that no letter are missed
-sub_comp_char:
-	inc		edx					; edx++
-	cmp		edx, 6				; edx - 6
-	jz		restore_char_index  ; jump if at the end of subset 
-	mov		bl, [the_word+edx]	; bl = the_word char at edx index
-	cmp		al, bl				; al - bl
-	jnz		sub_comp_char		; jump back to subset if not a match
-;updates_ouput_close:
-	mov		edx, [com_i]		; retores the main index
-	mov		[letters+edx], al	; char = lowercase letter updates_ouput_close 
-restore_char_index:
-	mov		edx, [com_i]		; retores the main index
-	jmp		check_char_index	; jump to check main index
-
-update_ouput_match:
+	jnz		check_char_index	; skip to next index
+;update_ouput_exact:
 	sub		al, 20h				; change bit to capitalized
 	mov		[letters+edx], al	; replaces "_"  with the capital letter
-	mov		
+	mov		al, '_'				; al = '_'
+	mov		[c_word+edx], al	; replaces the matched letter with a "_" 
+	mov		[guess+edx], al		; replaces the matched letter in guess with a "_" 
 	inc		ecx					; ecx++ (ammount of letters correct)
 check_char_index:
+	cmp		ecx, 5				; ecx - 5 (if all correct)
+	jz  	print_output		; jumps to print_output (if all correct skip to print)
+	cmp		edx, 5 				; edx - 5     (letter index in the words)
+	jz  	compare_char_close	; if match search is complete move to clse search reprompt
+	inc		edx					; edx++  move up one letter index
+	jmp		compare_char_exact	; compare next char	
+
+; cmpares the chars again to find any CLOSE MATCHS (lowercase)
+compare_char_close:
+	mov		cl, '_'				; cl = '_'
+	mov		edx, 0				; start at the beginning so that no letter are missed
+	mov		[com_i], edx		; saves original index
+	mov		al, [guess+edx]		; al = guess char at edx index
+sub_compare_close:
+	cmp		edx, 6					; edx - 6
+	jz		check_close_char_index  ; jump if index out of bounds
+	cmp		al, cl					; checks if al = cl  (if guess char is '_' already matched from guess)
+	jz		check_close_char_index  ; jump if al char was already matched
+	mov		bl, [c_word+edx]		; bl = the_word char at edx index
+	cmp		al, bl					; al - bl
+	jz		update_ouput_close		; update close match
+	inc		edx						; edx++   (move up index)
+	jmp		sub_compare_close
+
+update_ouput_close:
+	mov		[c_word+edx], cl	; replaces the close matched letter with a "_" in c_word
+	mov		edx, [com_i]		; retores the main index
+	mov		[letters+edx], al	; char = lowercase letter updates_ouput_close 
+check_close_char_index:
+	mov		edx, [com_i]		; retores the main index:
 	cmp		edx, 5 				; edx - 5     (letter index in the words)
 	jz  	print_output		; if word complete but not it reprompt
-	inc		edx					; edx++  move up one letter index
-	jmp		compare_char		; compare next char	
+
+	inc		edx					; edx++  (move up one letter index)
+	mov		al, [guess+edx]		; al = guess char at new original index
+	mov		[com_i], edx		; saves original index
+	mov		edx, 0				; resest the sub compare index
+	jmp		sub_compare_close	; compare next char	
 
 print_output:
 	mov		eax, space			; eax = &space + letters
 	call	print_string
 	call	print_nl
 	
-	mov		eax, [e_letters]	; eax = empty letters
-	mov		[letters], eax		; reseting letter to be empty
-	mov		al, [e_letters]	
-	mov		[letters+4], al		; resets last char
-
-	cmp		ecx, 5				; ecx - 5		(check if aall are correct)
+	cmp		ecx, 5				; ecx - 5		(check if all are correct)
 	jz		won					; jump to won
+
 	mov		edx, [turns]		; edx = turns 
 	sub		edx, 1				; edx--
 	jz		lost				; jump to lost if out of moves
 	mov		[turns], edx		; turns = edx
+
+	mov		eax, [e_letters]	; eax = empty letters
+	mov		[letters], eax		; reseting letters to be empty
+	mov		al, [e_letters]	
+	mov		[letters+4], al		; resets last char
+	mov		eax, [the_word]		
+	mov		[c_word], eax		; resets the c_word
+	mov		al, [the_word+4]	; 	|
+	mov		[c_word+4], al		; 	|
+
 	jmp		guess_and_check		; not all letters were correct retry with new guess
 
 won:
