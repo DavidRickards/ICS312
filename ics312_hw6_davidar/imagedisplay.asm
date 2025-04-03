@@ -1,20 +1,22 @@
-; This program prompts the user for a 5-letter lower-case string, the guess, 
-; and prints “It’s a words!” or “It’s not a words!” based on whether the guess 
-; is a known 5-letter English words or not. This program assumes that the user 
-; always enters the correct words that is exactly 5 lower-case letters followed
-; by a linefeed.
+; This program a 0-bit is printed as two white spaces (‘ ‘) and a 1-bit is printed as two hashpounds (‘##’).
+;                                                              ##
+;    ####################################################  ##    
+;##  ####  ######################      ##############    ##  ##  
+;######      ##################################################  
+;  ######  ############  ######  ############  ######## 
 
 %include "asm_io.inc"
 
 segment .data
     ; initalized varibles
-	
+	space		db		"  ", 0
+	hash		db		"##", 0
 
 segment .bss
     ; unintialized vars
 	hight 		resd		1		; hight of image (the # of ints to be read)
 	length		resd		1		; length of image (# of bits) (will always be a multiple of 32)
-
+	cur_int		resd		1		; The current int being read
 
 segment .text
 	global asm_main
@@ -22,21 +24,54 @@ asm_main:
 	enter	0,0
 	pusha	
 
+	; to run do :  cat example_image.numbers | ./imagedisplay
+
 	;; NOTE:  each int line is a 
 
     ; save image dimensions		
 	call	read_int			; reads the first line of the doc (32 bits) (this hight)
 	mov		[hight], eax		; hight = eax
+
 	call	read_int			; reads the second line of the doc (32 bits) (this hight)
-	mov		[length], eax		; length = eax
-	call 	print_int
-	call 	print_nl
+	cdq							; sign extend
+	mov		ecx, 32				; ecx = 32
+	idiv	ecx					; eax / ecx
+	mov		[length], eax		; length = eax  (the quotant)
+	mov		eax, [hight]
 
-	; readthe second number in file (the length)
-;	 mov		[length], eax		; length = eax
+each_row:
+	mov		[hight], eax		; save updated hight after each loop
+	mov		ecx, [length]		; ecx = eax (row length index)
+each_int:
+	mov		ebx, 0x80000000		; ebx = 10000000 00000000 00000000 00000000  (bit mask)
+	mov		edx, 32				; edx = 32 (bit index)
+	call	read_int			; reads next 32 int value
+	mov		[cur_int], eax		; cur_int = eax
+each_bit:
+	mov		eax, [cur_int]		; cur_int = eax
+	test	eax, ebx			; mask over the 
+	jz		zero_bit			; jump over print statment
+;one_bit:
+	mov		eax, hash			; loads "##"
+	jmp		check_indexs		; jumps to check indexs
+zero_bit:
+	mov		eax, space			; loads "  "
+check_indexs:
+	call 	print_string		; prints out "  "
+;	mov		eax, [cur_int]		; cur_int = eax
 
- each_int:			; for each integer listed
-	; save the integer (MAKE SURE IT IS A SIGNED INT)
+	shr		ebx, 1				; shift open bit right by one
+	sub		edx, 1				; edx--
+	jnz 	each_bit			; if edx != 0 (stil have bits to read in int)
+
+	sub		ecx, 1				; ecx - 1
+	jnz		each_int			; if sill more ints to read in row	
+
+	call 	print_nl			; prints new line
+	mov		eax, [hight]		; eax = [hight]
+	sub		eax, 1				; eax = eax - 1 (updated hight)
+	jnz		each_row			; if more row to read jump to read row
+
 
 
 	popa
