@@ -1,27 +1,34 @@
-; Luckily, you have spies out there, who have discovered the scrambling 
-; scheme: for each 32-bit integer the high 16 bits are reversed (as in a 
-; list reversal), and the low 16 bits are inverted (i.e., every 0 becomes 
-; a 1 and every 1 becomes a 0). For instance, if the original 32-bit 
-; integer is:
-;    11110000010101010001111111000000
-; then the scrambled bits are:
-;    10101010000011111110000000111111
+;The C code, which interprets the original integer (original_integer variable) as 
+;an UNSIGNED value, is as follows:
 
-; This is similar to the imagedisplay program, but descrambles the input 
-; integers before printing the ASCII art.
+;unsigned int encryption_key = 1374123;
+;unsigned int encrypted_integer;
+;unsigned short us = (original_integer >> 20);
+;unsigned int tmp = (original_integer << 12);
+;tmp ^= (encryption_key * row * row);
+;tmp &= 0xFFFFF000;
+;encrypted_integer = tmp + (unsigned int) us;
+;encrypted_integer = (encrypted_integer << 29 ) | (encrypted_integer >> 3);
 
 %include "asm_io.inc"
 
 segment .data
     ; initalized varibles
+;	words		db		"Length is ", 0
+;	rint 		db		"Reading int: ", 0
 	space		db		"  ", 0
 	hash		db		"##", 0
+;	encoded		db		"Encoded: ", 0
+;	decoded		db		"Decoded: ", 0
+;	expected	db		"Expecte: 11110000010101010001111111000000", 0 ; 00011111110000001111000001010101
 
 segment .bss
     ; unintialized vars
 	hight 		resd		1		; hight of image (the # of ints to be read)
 	length		resd		1		; length of image (# of bits) (will always be a multiple of 32)
 	cur_len		resd		1		; The current int being read
+;	h_bits		resw		1		; the 16 high bits of int
+;	rev_dex		resd		1		; index for bit reversal
 
 
 segment .text
@@ -66,10 +73,12 @@ reverse_high:
 	jnz		reverse_high		; if more to revers then jump
 
 	mov		ebx, ecx			; ebx = ecx (decoded int)
+	;mov		ebx, 0x80000000		; ebx = 10000000 00000000 00000000 00000000  (bit mask)
 	mov		edx, 32				; edx = 32 (bit index)
 	mov		ecx, [cur_len]		; ecx = eax (row length index)
 	
 each_bit:
+;	mov		ebx, [cur_int]		; cur_int = eax
 	shl		ebx, 1				; mask over the 
 	jc		one_bit				; jump if CF is 1
 
@@ -80,6 +89,7 @@ one_bit:
 	mov		eax, hash			; loads "##"
 check_indexs:
 	call 	print_string		; prints out "  "
+;	mov		eax, [cur_int]		; cur_int = eax
 
 	sub		edx, 1				; edx--
 	jnz 	each_bit			; if edx != 0 (stil have bits to read in int)
