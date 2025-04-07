@@ -55,9 +55,6 @@ asm_main:
 	mov		eax, [hight]		; eax = hight (int)
 each_row:
 	mov		[hight], eax		; save updated hight after each loop
-	mov		eax, [row]			; eax = row count
-	inc		eax					; eax++
-	mov		[row], eax			; row = eax (new row count)
 	mov		ecx, [length]		; ecx = length
 each_int:
 	mov		[cur_len], ecx		; updates with new length after loop
@@ -124,6 +121,11 @@ check_indexs:
 	jnz		each_int			; if sill more ints to read in row	
 
 	call 	print_nl			; prints new line
+
+	mov		eax, [row]			; eax = row count
+	inc		eax					; eax++
+	mov		[row], eax			; row = eax (new row count)
+	
 	mov		eax, [hight]		; eax = [hight]
 	sub		eax, 1				; eax = eax - 1 (updated hight)
 	jnz		each_row			; if more row to read jump to read row
