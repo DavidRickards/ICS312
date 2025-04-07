@@ -5,7 +5,7 @@ ASM = nasm
 ASMFLAGS = -f elf
 
 # Define program names
-EXECS = imagedisplay imagedescramble test
+EXECS = imagedisplay imagedescramble imagedecrypt test
 all: $(EXECS)
 
 # Linking executables

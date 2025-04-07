@@ -23,13 +23,14 @@ segment .data
     ; initalized varibles
 	space		db		"  ", 0
 	hash		db		"##", 0
-	row			dd 		0
+	key			dd 		1374123
 
 segment .bss
     ; unintialized vars
 	hight 		resd		1		; hight of image (the # of ints to be read)
 	length		resd		1		; length of image (# of bits) (will always be a multiple of 32)
 	cur_len		resd		1		; The current int being read
+	row			resd		1		; the 16 high bits of int
 	us			resw		1		; the bottom bits  (for decoding)
 
 
@@ -63,9 +64,9 @@ each_int:
 	mov		[cur_len], ecx		; updates with new length after loop
 	call	read_int			; reads next 32 int value
 
-	and eax, 0xFFFFFFFF
+
 ; 1) Reverse : encrypted_integer = (encrypted_integer << 29) | (encrypted_integer >> 3);
-	rol     eax, 3                  ; eax = rotated back right 3
+	ror     eax, 3                  ; eax = rotated back right 3
 
 ; 2) Reverse : encrypted_integer = tmp + (unsigned int) us;
 	mov 	edx, eax            ; edx = eax (encrypted int)
@@ -79,20 +80,16 @@ each_int:
 	; no way for me to reverse this...
 
 ; 3b) Reverse : tmp ^= (encryption_key * row * row);
-	mov     eax, [row]				; eax = row
-	mov		ecx, eax				; ecx = row
-	mul		ecx						; eax = row * row
-	mov		ecx, 1374123			; ecx = encryption_key
-	mul		ecx						; eax = encryption_key * (row * row)
-	xor		ebx, eax				; ebx (tmp) = ebx XOR eax
-									; ebx = [31-0]
+mov     eax, [row]
+imul    eax, eax           ; eax = row * row
+imul    eax, 1374123       ; eax = key * row^2
+xor     ebx, eax           ; ebx = tmp ⊕ key⋅row²
 
 ; 4) Reverse : tmp = original_integer << 12;
 	shr		ebx, 12					; shifts (tmp) bits back right by 12 to get (original_int)
 									; ebx = [0-0][19-0]
 
 ; 5) Reverse : unsigned short us = (original_integer >> 20);
-	mov		edx, [us]
 	shl		edx, 20					; shifts (us) bits back left by 20
 									; edx = [31-20][0-0]
 	or  	ebx, edx				; ebx (original_int) combined with edx (us)
@@ -101,6 +98,8 @@ each_int:
 
 ; 6) Reverse : unsigned int tmp = (original_integer << 12);
 	; original_int was already found in previous step
+
+	mov		ebx, edx
 
 	mov		edx, 32				; edx = 32 (bit index)
 	mov		ecx, [cur_len]		; ecx = eax (row length index)
